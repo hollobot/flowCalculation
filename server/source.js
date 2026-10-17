@@ -1,4 +1,41 @@
-const sourceRoot = 'https://payroll.gongzige.com/policy/api/portal/get_by_city';
+const portalRoot = 'https://payroll.gongzige.com/policy/api/portal';
+const sourceRoot = `${portalRoot}/get_by_city`;
+
+async function readSourceJson(url) {
+  let response;
+  try {
+    response = await fetch(url, {
+      headers: { Accept: 'application/json' },
+      signal: AbortSignal.timeout(30_000),
+    });
+  } catch (error) {
+    if (error.name === 'TimeoutError') throw error;
+    throw new Error('城市数据源暂不可用，请稍后重试');
+  }
+  if (!response.ok) {
+    const error = new Error('城市数据源请求失败，请稍后重试');
+    error.rateLimited = response.status === 429 || response.status === 403;
+    throw error;
+  }
+  try { return await response.json(); }
+  catch { throw new Error('城市数据源返回的数据格式异常，请稍后重试'); }
+}
+
+/**
+ * 读取数据源完整城市列表。接口返回的是政策记录列表，因此这里按 fcity 去重，
+ * 供“全城市同步”按城市逐个调用政策接口；空名称不会进入同步任务。
+ */
+export async function fetchSourceCities() {
+  const data = await readSourceJson(`${portalRoot}/get_citys/${Date.now()}`);
+  if (!data || data.errcode !== 0 || !Array.isArray(data.result)) {
+    throw new Error('城市数据源未返回有效的城市列表');
+  }
+  const cities = [...new Set(data.result
+    .map((entry) => String(entry?.fcity || '').trim())
+    .filter(Boolean))];
+  if (!cities.length) throw new Error('城市数据源暂未返回城市');
+  return cities;
+}
 
 function numeric(value, label) {
   if (value === '' || value === null || value === undefined) return null;
@@ -81,24 +118,7 @@ export function normalizePolicy(raw) {
 }
 
 export async function fetchCityPolicy(city) {
-  let response;
-  try {
-    response = await fetch(`${sourceRoot}/${encodeURIComponent(city)}/${Date.now()}`, {
-      headers: { Accept: 'application/json' },
-      signal: AbortSignal.timeout(30_000),
-    });
-  } catch (error) {
-    if (error.name === 'TimeoutError') throw error;
-    throw new Error('城市查询暂不可用，请稍后重试');
-  }
-  if (!response.ok) {
-    const error = new Error('城市查询失败，请稍后重试');
-    error.rateLimited = response.status === 429 || response.status === 403;
-    throw error;
-  }
-  let data;
-  try { data = await response.json(); }
-  catch { throw new Error('城市查询返回的数据格式异常，请稍后重试'); }
+  const data = await readSourceJson(`${sourceRoot}/${encodeURIComponent(city)}/${Date.now()}`);
   // 不向页面转发上游原始错误、链接或服务名称。
   if (!data || data.errcode !== 0) throw new Error('城市查询失败，请检查城市名称或稍后重试');
   if (!Array.isArray(data.result)) throw new Error('城市查询返回的数据格式异常');

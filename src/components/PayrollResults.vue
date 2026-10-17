@@ -2,6 +2,7 @@
 import { formatMoney, formatRate, roundLabels } from '../domain/money.js';
 import { useAmountCopy } from '../composables/useAmountCopy.js';
 import CopyAmount from './CopyAmount.vue';
+import UiIcon from './UiIcon.vue';
 const props = defineProps({ result: { type: Object, default: null }, dirty: Boolean });
 const { copied, pending, message, error, copy, reset } = useAmountCopy(() => props.result);
 </script>
@@ -65,6 +66,6 @@ const { copied, pending, message, error, copy, reset } = useAmountCopy(() => pro
       <span class="eyebrow">YOUR PAY, EXPLAINED</span><h2>每个月，到手多少？</h2><p>填写工资和任职时间，查看每月到手收入、<br />累计个税，以及你和公司的五险一金。</p>
       <div class="empty-features"><span>01 <b>按月折算</b></span><span>02 <b>累计计税</b></span><span>03 <b>缴费明细</b></span></div>
     </div>
-    <div class="calculation-note"><span>ⓘ</span><p>所有月份使用库内最新城市政策，属于统一口径测算，不还原历史政策。个税按年累计，每年 1 月重置；不含专项附加扣除和年度汇算。</p></div>
+    <div class="calculation-note"><UiIcon name="info" /><p>所有月份使用库内最新城市政策，属于统一口径测算，不还原历史政策。个税按年累计，每年 1 月重置；不含专项附加扣除和年度汇算。</p></div>
   </section>
 </template>

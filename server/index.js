@@ -2,11 +2,13 @@ import { createServer } from 'node:http';
 import { readFileSync } from 'node:fs';
 import { openDatabase, createPolicyRepository, databasePath } from './database.js';
 import { createSyncService } from './sync.js';
+import { fetchSourceCities } from './source.js';
 
 const development = process.argv.includes('--dev');
 const port = Number(process.env.PORT || (development ? 5173 : 3001));
 const db = openDatabase();
-const sync = createSyncService(createPolicyRepository(db));
+const repository = createPolicyRepository(db);
+const sync = createSyncService(repository);
 const server = createServer(handleRequest);
 const vite = development ? await (await import('vite')).createServer({
   server: { middlewareMode: true, hmr: { server } },
@@ -18,16 +20,24 @@ function json(response, status, data) {
   response.end(JSON.stringify(data));
 }
 
-async function readBody(request) {
+async function readBody(request, maxSize = 4096) {
   let size = 0;
   const chunks = [];
   for await (const chunk of request) {
     size += chunk.length;
-    if (size > 4096) throw new Error('请求内容过长');
+    if (size > maxSize) throw new Error('请求内容过长');
     chunks.push(chunk);
   }
   try { return JSON.parse(Buffer.concat(chunks).toString('utf8')); }
   catch { throw new Error('请求内容必须是 JSON'); }
+}
+
+function validCityList(value, emptyMessage = '请选择至少一个城市') {
+  if (!Array.isArray(value) || value.length > 1000) throw new Error('城市列表格式不正确');
+  const cities = [...new Set(value.map((city) => typeof city === 'string' ? city.trim() : '')
+    .filter((city) => city && city.length <= 80 && !/[\x00-\x1f/\\]/.test(city)))];
+  if (!cities.length) throw new Error(emptyMessage);
+  return cities;
 }
 
 async function handleRequest(request, response) {
@@ -44,17 +54,40 @@ async function handleRequest(request, response) {
       }
       if (request.method === 'GET' && path === '/api/health') return json(response, 200, { service: 'flow-calculation', local: true });
       if (request.method === 'GET' && path === '/api/sync') return json(response, 200, { job: sync.current() });
-      if (request.method === 'POST' && ['/api/sync/city', '/api/sync/all'].includes(path)) {
+      if (request.method === 'GET' && path === '/api/source/cities') {
+        const cities = await fetchSourceCities();
+        return json(response, 200, { cities, count: cities.length });
+      }
+      if (request.method === 'GET' && path === '/api/sync/cities') {
+        return json(response, 405, { error: '该接口需要使用 POST，并提交 {"cities":["城市名"]}' });
+      }
+      if (request.method === 'POST' && ['/api/sync/city', '/api/sync/cities', '/api/sync/all', '/api/sync/source-all'].includes(path)) {
         if (!request.headers['content-type']?.startsWith('application/json')) {
           return json(response, 415, { error: '请使用 application/json' });
         }
-        const body = await readBody(request);
-        let city;
+        const body = await readBody(request, ['/api/sync/cities', '/api/sync/all', '/api/sync/source-all'].includes(path) ? 64 * 1024 : 4096);
+        let job;
         if (path.endsWith('/city')) {
-          city = typeof body?.city === 'string' ? body.city.trim() : '';
+          const city = typeof body?.city === 'string' ? body.city.trim() : '';
           if (!city || city.length > 80 || /[\x00-\x1f/\\]/.test(city)) throw new Error('请输入有效的城市名称');
+          job = sync.start(city);
+        } else if (path.endsWith('/all') || path === '/api/sync/source-all') {
+          if (path === '/api/sync/source-all') {
+            job = sync.startCities(validCityList(body?.cities, '数据源没有返回可同步的城市'), {
+              kind: 'source-all', label: '数据源全城市',
+            });
+          } else if (Array.isArray(body?.cities)) {
+            // 本地全量同步允许页面先筛选城市，再沿用同一串行任务执行器。
+            job = sync.startCities(validCityList(body.cities), {
+              kind: 'local-all', label: '本地已保存城市',
+            });
+          } else {
+            job = sync.start();
+          }
+        } else {
+          job = sync.startCities(validCityList(body?.cities), { kind: 'selected', label: '选中城市' });
         }
-        return json(response, 202, { job: sync.start(city) });
+        return json(response, 202, { job });
       }
       return json(response, 404, { error: '接口不存在' });
     }

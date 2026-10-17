@@ -1,12 +1,13 @@
 <script setup>
 import { formatRate, roundLabels } from '../domain/money.js';
+import ArrowUpRightIcon from './ArrowUpRightIcon.vue';
 defineProps({ policy: { type: Object, required: true } });
 const range = (side) => side ? `${side.min.toLocaleString('zh-CN')} – ${side.max.toLocaleString('zh-CN')}` : '—';
 </script>
 
 <template>
   <details class="policy-details">
-    <summary>查看本次使用的城市政策 <span>{{ policy.name }} ↗</span></summary>
+    <summary>查看本次使用的城市政策 <span>{{ policy.name }} <ArrowUpRightIcon class="icon-arrow-up-right" /></span></summary>
     <div class="details-body">
       <p class="helper">以下为当前城市保存的缴费标准，默认使用最低档比例。</p>
       <p v-if="policy.unsupported?.length" class="notice warning">含尚未支持的{{ policy.unsupported.join('、') }}，计算时将提示处理。</p>

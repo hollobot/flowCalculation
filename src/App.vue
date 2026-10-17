@@ -3,6 +3,8 @@ import { computed, onMounted, ref } from 'vue';
 import { useRoute } from 'vue-router';
 import { routes } from './router/index.js';
 import { loadPolicies } from './services/policies.js';
+import ArrowUpRightIcon from './components/ArrowUpRightIcon.vue';
+import UiIcon from './components/UiIcon.vue';
 
 const route = useRoute();
 const navigation = routes.filter((entry) => entry.meta?.title);
@@ -36,7 +38,7 @@ onMounted(reload);
       <div class="sidebar-label">我的工作台</div>
       <nav aria-label="主导航">
         <RouterLink v-for="item in navigation" :key="item.name" :to="{ name: item.name }" active-class="active">
-          <span aria-hidden="true">{{ item.meta.icon }}</span> {{ item.meta.title }}<span class="nav-arrow">↗</span>
+          <span class="nav-icon"><UiIcon :name="item.meta.icon" /></span><span class="nav-label">{{ item.meta.title }}</span><ArrowUpRightIcon class="nav-arrow" />
         </RouterLink>
       </nav>
       <div class="sidebar-bottom"><span class="status-dot"></span> 计算在浏览器内完成<p>输入只用于本次计算<br />不保存个人工资数据</p></div>

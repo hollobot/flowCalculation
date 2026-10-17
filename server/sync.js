@@ -43,18 +43,21 @@ export function createSyncService(repository) {
 
   return {
     current: () => job,
-    start(city) {
+    startCities(cities, options = {}) {
       if (job?.status === 'running') {
         const error = new Error('已有同步任务正在运行，请等待完成');
         error.status = 409;
         throw error;
       }
-      const cities = city ? [city] : repository.listCities().map((entry) => entry.name);
-      if (!cities.length) throw new Error('请先添加一个城市');
+      const names = [...new Set(cities
+        .map((city) => String(city || '').trim())
+        .filter(Boolean))];
+      if (!names.length) throw new Error('没有可同步的城市');
       job = {
-        id: randomUUID(), status: 'running', total: cities.length, completed: 0,
+        id: randomUUID(), status: 'running', kind: options.kind || 'selected',
+        label: options.label || '城市同步', total: names.length, completed: 0,
         succeeded: 0, failed: 0, currentCity: null, startedAt: new Date().toISOString(),
-        entries: cities.map((name) => ({ city: name, status: 'pending', message: '等待同步' })),
+        entries: names.map((name) => ({ city: name, status: 'pending', message: '等待同步' })),
       };
       const currentJob = job;
       void run(currentJob).catch((error) => {
@@ -62,6 +65,12 @@ export function createSyncService(repository) {
         currentJob.error = error.message;
       });
       return currentJob;
+    },
+    start(city) {
+      if (city) return this.startCities([city], { kind: 'city', label: '单个城市' });
+      const cities = repository.listCities().map((entry) => entry.name);
+      if (!cities.length) throw new Error('请先添加一个城市');
+      return this.startCities(cities, { kind: 'local-all', label: '本地已保存城市' });
     },
   };
 }

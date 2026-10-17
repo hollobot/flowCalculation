@@ -6,6 +6,7 @@ import { calendarYears, listMonths } from '../domain/calendar.js';
 import PayrollResults from './PayrollResults.vue';
 import PolicyDetails from './PolicyDetails.vue';
 import CityCombobox from './CityCombobox.vue';
+import UiIcon from './UiIcon.vue';
 
 defineOptions({ name: 'CalculatorPage' });
 const props = defineProps({ cities: { type: Array, required: true }, loading: Boolean });
@@ -67,7 +68,7 @@ function calculate(regenerate = false) {
       <div class="card-heading"><h2>计算条件</h2><span class="pill">仅本次使用</span></div>
       <fieldset><legend><span class="step">01</span> 收入与任职</legend>
         <CityCombobox id="calculator-city" v-model="form.city" :cities="cities" label="社保公积金缴纳地" :disabled="loading" />
-        <p v-if="!policy && !loading" class="helper">{{ form.city.trim() ? '城市不存在。' : '请搜索并选择已有城市。' }}<RouterLink :to="{ name: 'sync' }">前往添加城市并同步 →</RouterLink></p>
+        <p v-if="!policy && !loading" class="helper">{{ form.city.trim() ? '城市不存在。' : '请搜索并选择已有城市。' }}<RouterLink class="inline-link" :to="{ name: 'sync' }">前往添加城市并同步 <UiIcon name="arrow-right" /></RouterLink></p>
         <p v-else-if="policy" class="helper policy-date"><span class="status-dot"></span>已选择 {{ selectedCity.name }} · 更新于 {{ selectedCity.syncedAt?.slice(0, 10) }}</p>
         <div class="field-grid"><label>固定税前月薪<div class="input-unit"><input v-model.number="form.salary" type="number" min="0" max="1000000000" step="0.01" required inputmode="decimal" /><span>元</span></div></label><label>每月随机浮动 ±<div class="input-unit"><input v-model.number="form.fluctuation" type="number" min="0" :max="form.salary" step="0.01" required inputmode="decimal" /><span>元</span></div></label></div>
         <div class="field-grid"><label>入职日期<input v-model="form.start" type="date" min="2019-01-01" :max="form.end || undefined" required /></label><label>离职日期<input v-model="form.end" type="date" :min="form.start || '2019-01-01'" required /></label></div>
@@ -88,7 +89,7 @@ function calculate(regenerate = false) {
         <template v-if="form.bonusEnabled"><div class="field-grid"><label>发放年月<input v-model="form.bonusMonth" type="month" :min="form.start.slice(0, 7)" :max="form.end.slice(0, 7)" required /></label><label>奖金金额（不含工资）<input v-model.number="form.bonusAmount" type="number" min="0" max="1000000000" step="0.01" required /></label></div><label>计税方式<select v-model="form.bonusMode"><option value="separate">单独计税</option><option value="combined">并入综合所得</option></select></label><p class="helper">单独计税政策已收录至 2027 年底，奖金不会按出勤天数折算。</p></template>
       </fieldset>
       <div v-if="error" class="notice error" role="alert">{{ error }}</div>
-      <div class="form-actions"><button class="button primary-button" type="submit" :disabled="!policy || loading">计算工资 <span>→</span></button><button class="button secondary-button" type="button" :disabled="!policy || loading" @click="calculate(true)">重新生成浮动</button></div>
+      <div class="form-actions"><button class="button primary-button" type="submit" :disabled="!policy || loading">计算工资 <UiIcon name="arrow-right" class="button-end-icon" /></button><button class="button secondary-button" type="button" :disabled="!policy || loading" @click="calculate(true)">重新生成浮动</button></div>
       <p class="helper centered">普通重算保留浮动值 · 刷新页面不保留结果</p>
     </form>
     <div class="results-column">
