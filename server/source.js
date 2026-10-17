@@ -3,14 +3,14 @@ const sourceRoot = 'https://payroll.gongzige.com/policy/api/portal/get_by_city';
 function numeric(value, label) {
   if (value === '' || value === null || value === undefined) return null;
   const result = Number(value);
-  if (!Number.isFinite(result) || result < 0) throw new Error(`数据源的${label}不是有效非负数`);
+  if (!Number.isFinite(result) || result < 0) throw new Error(`城市数据中的${label}不是有效非负数`);
   return result;
 }
 
 function rateList(value, label) {
   if (value === '' || value === null || value === undefined) return [];
   const rates = String(value).split(',').map((part) => numeric(part.trim(), label));
-  if (rates.some((rate) => rate === null || rate > 1)) throw new Error(`数据源的${label}格式无法识别`);
+  if (rates.some((rate) => rate === null || rate > 1)) throw new Error(`城市数据中的${label}格式无法识别`);
   return rates.sort((a, b) => a - b);
 }
 
@@ -18,7 +18,7 @@ function rounding(config, prefix) {
   const precision = numeric(config[`${prefix}Accuracy`], '小数位数');
   const mode = numeric(config[`${prefix}RoundMode`], '进位规则');
   if (!Number.isInteger(precision) || precision > 2 || ![1, 2, 3, 4].includes(mode)) {
-    throw new Error('数据源缺少可识别的金额精度或进位规则，无法安全计算');
+    throw new Error('城市数据缺少可识别的金额精度或进位规则，无法计算');
   }
   return { precision, roundMode: mode };
 }
@@ -35,7 +35,7 @@ function contributionSide(config, lower, upper, rate, label) {
 /** 字母字段由数据源政策页面核对，特别注意生育保险是 AA/AB/AC，而非 S/T/U。 */
 export function normalizePolicy(raw) {
   const config = raw.config;
-  if (!config || !raw.id || !raw.name) throw new Error('数据源政策字段不完整');
+  if (!config || !raw.id || !raw.name) throw new Error('城市数据字段不完整');
   const socialRounding = rounding(config, 'sp');
   const fundRounding = rounding(config, 'pf');
   const definitions = [
@@ -81,20 +81,28 @@ export function normalizePolicy(raw) {
 }
 
 export async function fetchCityPolicy(city) {
-  const response = await fetch(`${sourceRoot}/${encodeURIComponent(city)}/${Date.now()}`, {
-    headers: { Accept: 'application/json' },
-    signal: AbortSignal.timeout(30_000),
-  });
+  let response;
+  try {
+    response = await fetch(`${sourceRoot}/${encodeURIComponent(city)}/${Date.now()}`, {
+      headers: { Accept: 'application/json' },
+      signal: AbortSignal.timeout(30_000),
+    });
+  } catch (error) {
+    if (error.name === 'TimeoutError') throw error;
+    throw new Error('城市查询暂不可用，请稍后重试');
+  }
   if (!response.ok) {
-    const error = new Error(`数据源请求失败（HTTP ${response.status}）`);
+    const error = new Error('城市查询失败，请稍后重试');
     error.rateLimited = response.status === 429 || response.status === 403;
     throw error;
   }
-  const data = await response.json();
-  if (data.errcode !== 0) throw new Error(data.message || data.msg || `数据源错误：${data.errcode}`);
-  if (!Array.isArray(data.result) || !data.result.length) {
-    throw new Error('未找到城市政策，请使用数据源城市名称，例如“杭州市”或“上海城区”');
-  }
+  let data;
+  try { data = await response.json(); }
+  catch { throw new Error('城市查询返回的数据格式异常，请稍后重试'); }
+  // 不向页面转发上游原始错误、链接或服务名称。
+  if (!data || data.errcode !== 0) throw new Error('城市查询失败，请检查城市名称或稍后重试');
+  if (!Array.isArray(data.result)) throw new Error('城市查询返回的数据格式异常');
+  if (!data.result.length) throw new Error('城市不存在，请检查城市名称，例如“杭州市”或“上海城区”');
   // 接口可能返回多个版本：只保留最新生效、最新更新的一条，原始响应留作追溯。
   const latest = [...data.result].sort((a, b) =>
     Number(b.stratedAt || 0) - Number(a.stratedAt || 0)

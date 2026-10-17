@@ -1,6 +1,9 @@
 <script setup>
 import { formatMoney, formatRate, roundLabels } from '../domain/money.js';
-defineProps({ result: { type: Object, default: null }, dirty: Boolean });
+import { useAmountCopy } from '../composables/useAmountCopy.js';
+import CopyAmount from './CopyAmount.vue';
+const props = defineProps({ result: { type: Object, default: null }, dirty: Boolean });
+const { copied, pending, message, error, copy, reset } = useAmountCopy(() => props.result);
 </script>
 
 <template>
@@ -13,13 +16,29 @@ defineProps({ result: { type: Object, default: null }, dirty: Boolean });
         <article class="summary-card"><span>累计个人所得税 <small>元</small></span><strong>{{ formatMoney(result.totals.tax) }}</strong><div>个人五险一金 {{ formatMoney(result.totals.personal) }}</div></article>
       </div>
       <div class="card result-card">
-        <div class="card-heading"><div><h2>每月工资明细</h2><p>{{ result.rows[0].month }} — {{ result.rows.at(-1).month }} · {{ result.policyName }}</p></div><span class="pill">人民币 / 元</span></div>
+        <div class="card-heading result-heading">
+          <div><h2>每月工资明细</h2><p>{{ result.rows[0].month }} — {{ result.rows.at(-1).month }} · {{ result.policyName }}</p></div>
+          <div class="result-heading-actions">
+            <span class="pill">人民币 / 元</span>
+            <button type="button" class="button small-button secondary-button" :disabled="!copied.size && !pending.size" @click="reset">重置复制标记</button>
+          </div>
+        </div>
+        <div class="copy-toolbar"><span>点击金额旁的按钮，复制当前月份的对应金额。</span><span>{{ copied.size ? `已标记 ${copied.size} 项` : '已复制的金额将以蓝色标记' }}</span></div>
+        <p v-if="error" class="notice error copy-feedback" role="alert">{{ error }}</p>
+        <p class="sr-only" role="status">{{ message }}</p>
         <div class="table-scroll">
           <table class="payroll-table">
             <caption class="sr-only">每月工资、年终奖、社保公积金及个税明细</caption>
             <thead><tr><th>月份</th><th>税前工资</th><th>年终奖</th><th>个人五险一金</th><th>个人所得税</th><th>到手收入</th></tr></thead>
             <tbody v-for="row in result.rows" :key="row.month" class="month-group">
-              <tr class="month-row"><th>{{ row.month }}<small>{{ row.attendance.fullMonth ? '整月' : `${row.attendance.paidDays} / ${row.attendance.totalDays} 计薪天` }}</small></th><td data-label="税前工资">{{ formatMoney(row.gross) }}</td><td data-label="年终奖">{{ formatMoney(row.bonus) }}</td><td data-label="个人五险一金">{{ formatMoney(row.personal) }}</td><td data-label="个人所得税">{{ formatMoney(row.tax) }}</td><td data-label="到手收入" class="net-amount">{{ formatMoney(row.net) }}</td></tr>
+              <tr class="month-row">
+                <th>{{ row.month }}<small>{{ row.attendance.fullMonth ? '整月' : `${row.attendance.paidDays} / ${row.attendance.totalDays} 计薪天` }}</small></th>
+                <td data-label="税前工资"><CopyAmount :amount="row.gross" :label="`${row.month} 税前工资`" :copied="copied.has(`${row.month}:gross`)" :pending="pending.has(`${row.month}:gross`)" @copy="copy(row.month, 'gross', row.gross, '税前工资')" /></td>
+                <td data-label="年终奖">{{ formatMoney(row.bonus) }}</td>
+                <td data-label="个人五险一金">{{ formatMoney(row.personal) }}</td>
+                <td data-label="个人所得税"><CopyAmount :amount="row.tax" :label="`${row.month} 个人所得税`" :copied="copied.has(`${row.month}:tax`)" :pending="pending.has(`${row.month}:tax`)" @copy="copy(row.month, 'tax', row.tax, '个人所得税')" /></td>
+                <td data-label="到手收入" class="net-amount">{{ formatMoney(row.net) }}</td>
+              </tr>
               <tr class="breakdown-row"><td colspan="6">
                 <details class="month-details">
                   <summary>社保公积金与计税过程 <span>公司缴纳 {{ formatMoney(row.company) }} 元</span></summary>

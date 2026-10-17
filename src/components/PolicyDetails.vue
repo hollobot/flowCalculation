@@ -8,9 +8,9 @@ const range = (side) => side ? `${side.min.toLocaleString('zh-CN')} – ${side.m
   <details class="policy-details">
     <summary>查看本次使用的城市政策 <span>{{ policy.name }} ↗</span></summary>
     <div class="details-body">
-      <p class="helper">{{ policy.description }} {{ policy.note }}</p>
+      <p class="helper">以下为当前城市保存的缴费标准，默认使用最低档比例。</p>
       <p v-if="policy.unsupported?.length" class="notice warning">含尚未支持的{{ policy.unsupported.join('、') }}，计算时将提示处理。</p>
-      <p v-if="policy.fundTaxFreeLimit" class="notice warning">数据源提供额外公积金免税上限 {{ policy.fundTaxFreeLimit }}，需核对其计税口径后才能计算。</p>
+      <p v-if="policy.fundTaxFreeLimit" class="notice warning">额外公积金免税上限为 {{ policy.fundTaxFreeLimit }}，需核对其计税口径后才能计算。</p>
       <div class="table-scroll">
         <table class="policy-table">
           <caption class="sr-only">社保公积金缴费基数、比例和舍入规则</caption>

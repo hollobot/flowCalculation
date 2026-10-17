@@ -13,7 +13,7 @@ export async function loadPolicies() {
     runtime,
     fetch(`${import.meta.env.BASE_URL}data/policies.sqlite`, { cache: 'no-store' }),
   ]);
-  if (!response.ok) throw new Error('政策数据库无法加载，请在本地运行 npm run db:init，并随站点发布数据库');
+  if (!response.ok) throw new Error('城市数据库无法加载，请在本地运行 npm run db:init，并随站点发布数据库');
   const bytes = new Uint8Array(await response.arrayBuffer());
   let db;
   try {
@@ -25,7 +25,7 @@ export async function loadPolicies() {
       name, syncedAt, lastError, policy: policyJson ? JSON.parse(policyJson) : null,
     }));
   } catch (error) {
-    throw new Error(`无法读取 SQLite 政策库：${error.message}`);
+    throw new Error(`无法读取城市数据库：${error.message}`);
   } finally {
     db?.close();
   }

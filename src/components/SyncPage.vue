@@ -2,8 +2,9 @@
 import { computed, onMounted, onUnmounted, ref } from 'vue';
 import { api, isLocalHost } from '../services/sync-api.js';
 import PolicyDetails from './PolicyDetails.vue';
+import CityCombobox from './CityCombobox.vue';
 
-defineProps({ cities: { type: Array, required: true } });
+defineProps({ cities: { type: Array, required: true }, loading: Boolean });
 const emit = defineEmits(['updated']);
 const cityName = ref('');
 const connected = ref(false);
@@ -66,13 +67,23 @@ onUnmounted(() => { disposed = true; clearTimeout(timer); });
 </script>
 
 <template>
-  <div class="page-title"><div><span class="eyebrow">POLICY DATA</span><h1>城市政策，一处更新。</h1><p>在本地同步，再将更新后的数据库发布到 GitHub Pages。</p></div><span class="title-mark" aria-hidden="true">⇄</span></div>
-  <div v-if="!isLocalHost" class="notice offline-notice"><b>当前为在线计算模式</b><p>同步需要在电脑本地执行。在项目目录运行 <code>npm run dev</code>，打开本地地址后添加城市、同步政策，再将 <code>public/data/policies.sqlite</code> 推送到 GitHub。</p></div>
+  <div class="page-title"><div><span class="eyebrow">CITY DATA</span><h1>城市数据，一处管理。</h1><p>添加城市、同步数据、查看缴费标准，按模块完成更新。</p></div><span class="title-mark" aria-hidden="true">⇄</span></div>
+  <div v-if="!isLocalHost" class="notice offline-notice"><b>当前为在线计算模式</b><p>同步需要在电脑本地执行。在项目目录运行 <code>npm run dev</code>，打开本地地址后添加并同步城市，再将更新后的数据库随站点一起发布。</p></div>
   <div v-if="error" class="notice error" role="alert">{{ error }}</div>
   <div class="sync-layout">
-    <section class="card sync-controls"><div class="card-heading"><h2>同步城市政策</h2><span :class="['pill', connected ? 'success-pill' : '']">{{ connected ? '本地服务已连接' : '本地服务未连接' }}</span></div>
-      <div class="sync-controls-body"><form @submit.prevent="start(cityName.trim())"><label>添加并同步城市<input v-model="cityName" placeholder="例如：杭州市、上海城区" maxlength="80" required :disabled="!connected || running || submitting" /></label><p class="helper">使用工资哥数据源中的城市名称，每次查询一个城市。</p><button type="submit" class="button primary-button" :disabled="!connected || running || submitting || !cityName.trim()">添加并同步 <span>＋</span></button></form>
-        <div class="sync-divider"></div><h3>更新已有城市</h3><p class="helper">逐个同步数据库中的所有城市，每次请求结束后间隔 1 秒。</p><button class="button secondary-button" :disabled="!connected || running || submitting || !cities.length" @click="start()">{{ running ? '正在同步，请稍候…' : `一键同步全部 ${cities.length} 个城市` }}</button>
+    <section class="card sync-controls"><div class="card-heading"><h2>城市同步</h2><span :class="['pill', connected ? 'success-pill' : '']">{{ connected ? '本地服务已连接' : '本地服务未连接' }}</span></div>
+      <div class="sync-controls-body">
+        <form class="sync-action-module" @submit.prevent="start(cityName.trim())">
+          <div class="module-label"><span class="step">01</span><h3>单个城市</h3></div>
+          <CityCombobox id="sync-city" v-model="cityName" :cities="cities" label="选择已有城市或添加新城市" allow-create :disabled="!connected || running || submitting || loading" />
+          <p class="helper">支持名称模糊搜索；新城市查询成功后才保存，未找到时提示“城市不存在”。</p>
+          <button type="submit" class="button primary-button" :disabled="!connected || running || submitting || loading || !cityName.trim()">同步此城市 <span>＋</span></button>
+        </form>
+        <div class="sync-action-module">
+          <div class="module-label"><span class="step">02</span><h3>批量更新</h3></div>
+          <p class="helper">逐个同步已保存的全部城市，每次请求结束后间隔 1 秒。</p>
+          <button class="button secondary-button" :disabled="!connected || running || submitting || loading || !cities.length" @click="start()">{{ running ? '正在同步，请稍候…' : `一键同步全部 ${cities.length} 个城市` }}</button>
+        </div>
         <button v-if="isLocalHost && !connected" class="button secondary-button reconnect" :disabled="connecting" @click="connect">{{ connecting ? '正在连接…' : '重新连接本地服务' }}</button>
       </div>
     </section>
@@ -81,9 +92,9 @@ onUnmounted(() => { disposed = true; clearTimeout(timer); });
       <div v-else class="progress-empty"><span aria-hidden="true">↻</span><h3>政策更新，从一个城市开始</h3><p>发起同步后，这里会显示每个城市的进度与结果。</p></div>
     </section>
   </div>
-  <section class="card city-library"><div class="card-heading"><div><h2>城市政策库</h2><p>只保存城市政策，不保存工资与个人信息。</p></div><span class="pill">{{ cities.length }} 个城市</span></div>
-    <div v-if="!cities.length" class="library-empty">还没有城市。在本地添加第一个城市，开始建立政策库。</div>
-    <div v-for="city in cities" :key="city.name" class="city-entry"><div class="city-entry-heading"><div><h3>{{ city.name }}</h3><p>{{ city.syncedAt ? `上次同步：${new Date(city.syncedAt).toLocaleString('zh-CN')}` : '尚未成功同步' }}</p></div><button class="button small-button secondary-button" :disabled="!connected || running || submitting" @click="start(city.name)">重新同步</button></div><p v-if="city.lastError" class="notice warning">上次同步失败：{{ city.lastError }}{{ city.policy ? '；当前仍保留上次成功的数据。' : '' }}</p><PolicyDetails v-if="city.policy" :policy="city.policy" /></div>
+  <section class="card city-library"><div class="card-heading"><div><h2>已保存城市</h2><p>查看各城市的缴费标准与最近更新时间。</p></div><span class="pill">{{ cities.length }} 个城市</span></div>
+    <div v-if="!cities.length" class="library-empty">还没有城市。首次同步成功后，城市会显示在这里。</div>
+    <div v-for="city in cities" :key="city.name" class="city-entry"><div class="city-entry-heading"><div><h3>{{ city.name }}</h3><p>{{ city.syncedAt ? `上次同步：${new Date(city.syncedAt).toLocaleString('zh-CN')}` : '尚未成功同步' }}</p></div><button class="button small-button secondary-button" :disabled="!connected || running || submitting" @click="start(city.name)">重新同步</button></div><p v-if="city.lastError" class="notice warning">上次同步未成功，请重新同步。{{ city.policy ? '当前仍保留上次成功的数据。' : '' }}</p><PolicyDetails v-if="city.policy" :policy="city.policy" /></div>
   </section>
-  <div class="publish-note"><span class="step">↗</span><div><h3>同步完成后如何发布？</h3><p>将 <code>public/data/policies.sqlite</code> 提交并推送到仓库。GitHub Actions 会重新发布页面与数据库，线上无需运行 Node 服务。</p></div></div>
+  <div class="publish-note"><span class="step">↗</span><div><h3>同步完成后如何发布？</h3><p>将 <code>public/data/policies.sqlite</code> 提交并推送到仓库，随站点一起发布即可。在线页面将读取更新后的城市数据。</p></div></div>
 </template>

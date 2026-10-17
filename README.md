@@ -13,7 +13,13 @@ npm install
 npm run dev
 ```
 
-打开 `http://127.0.0.1:5173`，进入“数据同步”，输入数据源城市名称，例如 **杭州市**、**上海城区**，点击“添加并同步”。成功后返回“工资计算”。
+打开 `http://127.0.0.1:5173`，进入“数据同步”，输入城市名称，例如 **杭州市**、**上海城区**，点击“同步此城市”。成功后返回“工资计算”。
+
+- 页面由 `src/router/index.js` 中的路由表管理，地址分别为 `#/calculator`、`#/sync`，可直接打开、刷新及前进后退。计算页在切换时保留输入、结果和复制标记。
+- 城市下拉框模糊匹配 SQLite `cities` 表中的已有名称，支持上下方向键、回车选择和 Escape 关闭。计算页只接受已有城市；同步页允许输入新城市。
+- 新城市只有在查询、字段校验成功后才与政策一起写入同一个事务。城市不存在、网络异常或数据格式不正确时，不会新增 `cities` 记录。
+- 月度明细的“税前工资”和“个人所得税”可分别复制，仅复制该月对应金额（两位小数，不含千分位和单位）。成功后金额变蓝并显示勾选；“重置复制标记”统一复原，新计算结果也会清除旧标记。汇总金额不提供复制按钮。
+- 页面不展示外部服务名称、来源链接和原始备注/错误信息；内部同步接口、原始政策存储保持不变。
 
 - `npm run dev`：同一个本地服务提供页面、数据库文件与同步接口，启动时自动初始化数据库。
 - `npm run server`：仅启动接口服务，地址 `http://127.0.0.1:3001`。
@@ -104,11 +110,14 @@ server/sync.js                单任务串行同步、节流与进度
 server/index.js               本机 HTTP 接口和 Vite 开发服务
 src/services/policies.js      浏览器加载与查询 SQLite
 src/services/sync-api.js      本地接口调用与异常处理
+src/router/index.js           页面路由表与导航元数据
+src/services/clipboard.js     剪贴板写入与兼容处理
+src/composables/useAmountCopy.js 按月份、字段管理复制状态
 src/domain/calendar.js        计薪日历与首尾月计薪天数
 src/domain/money.js           十进制金额和舍入
 src/domain/tax.js             累计工资税、年终奖税
 src/domain/payroll.js         纯前端工资计算
-src/components/              表单、政策查看、月度结果、同步页
+src/components/              表单、城市搜索下拉、金额复制、政策查看、月度结果、同步页
 public/data/policies.sqlite   需要提交到 Git 的政策数据库
 ```
 

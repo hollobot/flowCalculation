@@ -11,7 +11,7 @@ export function createSyncService(repository) {
     for (const entry of currentJob.entries) {
       if (blocked) {
         entry.status = 'skipped';
-        entry.message = '数据源限制访问，已停止后续请求，请稍后重试';
+        entry.message = '同步请求过于频繁，已停止后续请求，请稍后重试';
         currentJob.completed++;
         continue;
       }
@@ -26,7 +26,7 @@ export function createSyncService(repository) {
         currentJob.succeeded++;
       } catch (error) {
         entry.status = 'failed';
-        entry.message = error.name === 'TimeoutError' ? '数据源请求超时，请稍后重试' : error.message;
+        entry.message = error.name === 'TimeoutError' ? '城市查询超时，请稍后重试' : error.message;
         repository.saveError(entry.city, entry.message);
         currentJob.failed++;
         blocked = Boolean(error.rateLimited);
@@ -49,7 +49,6 @@ export function createSyncService(repository) {
         error.status = 409;
         throw error;
       }
-      if (city) repository.addCity(city);
       const cities = city ? [city] : repository.listCities().map((entry) => entry.name);
       if (!cities.length) throw new Error('请先添加一个城市');
       job = {

@@ -57,7 +57,7 @@ function calculateContributions(policy, input, month) {
 
 /** 纯函数：不访问网络、数据库或随机数，同一参数和浮动表始终得到同一结果。 */
 export function calculatePayroll(input, policy, offsets) {
-  if (!policy) throw new Error('该城市尚无政策，请先在本地同步');
+  if (!policy) throw new Error('城市不存在，请先在本地添加并同步');
   if (policy.unsupported?.length) throw new Error(`该政策含${policy.unsupported.join('、')}，尚未支持其计费规则，不能生成不完整结果`);
   if (policy.fundTaxFreeLimit) throw new Error('该城市存在额外公积金免税上限，需核对其计税口径后才能计算');
   const months = listMonths(input.start, input.end);

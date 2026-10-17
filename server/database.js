@@ -38,14 +38,12 @@ export function createPolicyRepository(db) {
     listCities() {
       return db.prepare('SELECT * FROM cities ORDER BY name').all();
     },
-    addCity(name) {
-      db.prepare('INSERT OR IGNORE INTO cities(name, created_at) VALUES (?, ?)')
-        .run(name, new Date().toISOString());
-    },
     savePolicy(city, policy, raw) {
       const syncedAt = new Date().toISOString();
       db.exec('BEGIN IMMEDIATE');
       try {
+        // 查询和数据校验成功后，城市与政策一起提交；任何一步失败都不会留下空城市。
+        db.prepare('INSERT OR IGNORE INTO cities(name, created_at) VALUES (?, ?)').run(city, syncedAt);
         db.prepare(`INSERT INTO policies VALUES (?, ?, ?, ?, ?, ?, ?, ?)
           ON CONFLICT(city_name) DO UPDATE SET
             source_id=excluded.source_id, display_name=excluded.display_name,
@@ -61,7 +59,7 @@ export function createPolicyRepository(db) {
       }
     },
     saveError(city, message) {
-      // 同步失败保留上一次成功的政策，不用错误响应覆盖已有数据。
+      // 仅记录已有城市的错误；新城市查询失败时，不新增 cities 记录。
       db.prepare('UPDATE cities SET last_error=? WHERE name=?').run(message, city);
     },
   };
