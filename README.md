@@ -97,16 +97,6 @@ GitHub Pages 上的数据库是公开静态文件。此项目只在其中存储�
 | GET | `/api/sync` | 无 | 查询当前/最近任务、逐城市结果和进度 |
 | GET | `/data/policies.sqlite` | 无 | 下载已提交的 SQLite 数据库 |
 
-每次第三方请求结束后至少间隔 1 秒，跨任务也共用冷却时间。运行中的任务不能重复启动（HTTP 409）。单城市失败保留旧政策并继续其他城市；HTTP 403/429 时停止后续请求，显示跳过状态，避免持续触发限制。第三方请求超时为 30 秒，不自动重试。
-
-使用的第三方接口：
-
-```text
-GET https://payroll.gongzige.com/policy/api/portal/get_citys/{13 位毫秒时间戳}
-GET https://payroll.gongzige.com/policy/api/portal/get_by_city/{编码后的城市名称}/{当前毫秒时间戳}
-```
-
-`get_citys` 返回的记录可能包含同一城市的多个区域政策，服务端按 `fcity` 去重后再按城市同步；当前数据库按城市保留最新政策。
 
 ## 数据库与模块
 
