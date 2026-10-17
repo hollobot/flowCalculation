@@ -44,7 +44,12 @@ onMounted(reload);
       <div class="sidebar-bottom"><span class="status-dot"></span> 计算在浏览器内完成<p>输入只用于本次计算<br />不保存个人工资数据</p></div>
     </aside>
     <main class="main-content">
-      <header class="topbar"><span>工作台 <span class="muted">/</span> {{ route.meta.title }}</span><span class="database-badge"><span class="status-dot"></span>{{ policyCount }} 个城市已就绪</span></header>
+      <header class="topbar">
+        <span class="breadcrumb">
+          <strong class="breadcrumb-current">{{ route.meta.title }}</strong>
+        </span>
+        <span class="database-badge"><span class="status-dot"></span>{{ policyCount }} 个城市已就绪</span>
+      </header>
       <div v-if="error" class="notice error" role="alert">{{ error }} <button class="text-button" @click="reload">重新加载</button></div>
       <div v-if="loading" class="notice" role="status">正在读取城市政策…</div>
       <RouterView v-slot="{ Component }">

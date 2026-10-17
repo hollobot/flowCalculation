@@ -7,6 +7,7 @@ import PayrollResults from './PayrollResults.vue';
 import PolicyDetails from './PolicyDetails.vue';
 import CityCombobox from './CityCombobox.vue';
 import UiIcon from './UiIcon.vue';
+import FormSelect from './FormSelect.vue';
 
 defineOptions({ name: 'CalculatorPage' });
 const props = defineProps({ cities: { type: Array, required: true }, loading: Boolean });
@@ -25,6 +26,20 @@ const dirty = ref(false);
 let offsets = {};
 let offsetKey = '';
 const groups = [{ key: 'social', title: '社保' }, { key: 'fund', title: '公积金' }];
+const baseModeOptions = [
+  { value: 'minimum', label: '政策最低基数' },
+  { value: 'salary', label: '固定月薪全额' },
+  { value: 'custom', label: '自定义基数' },
+];
+const firstMonthOptions = [
+  { value: 'auto', label: '自动：≤15 日入职缴纳' },
+  { value: 'yes', label: '缴纳整月' },
+  { value: 'no', label: '不缴纳' },
+];
+const lastMonthOptions = [
+  { value: 'yes', label: '缴纳整月' },
+  { value: 'no', label: '不缴纳' },
+];
 
 watch(() => props.cities, (cities) => {
   if (!form.city && cities.length) form.city = (cities.find((city) => city.policy) || cities[0]).name;
@@ -76,9 +91,9 @@ function calculate(regenerate = false) {
       </fieldset>
       <fieldset><legend><span class="step">02</span> 五险一金</legend>
         <div v-for="group in groups" :key="group.key" class="contribution-config">
-          <label>{{ group.title }}缴费基数<select v-model="form[group.key].mode"><option value="minimum">政策最低基数</option><option value="salary">固定月薪全额</option><option value="custom">自定义基数</option></select></label>
+          <FormSelect :id="`${group.key}-base-mode`" v-model="form[group.key].mode" :label="`${group.title}缴费基数`" :options="baseModeOptions" />
           <label v-if="form[group.key].mode === 'custom'">{{ group.title }}自定义基数（元）<input v-model.number="form[group.key].base" type="number" min="0" max="1000000000" step="0.01" required inputmode="decimal" /></label>
-          <div class="field-grid small-fields"><label>首月{{ group.title }}<select v-model="form[group.key].first"><option value="auto">自动：≤15 日入职缴纳</option><option value="yes">缴纳整月</option><option value="no">不缴纳</option></select></label><label>末月{{ group.title }}<select v-model="form[group.key].last" :disabled="form.start.slice(0, 7) === form.end.slice(0, 7)"><option value="yes">缴纳整月</option><option value="no">不缴纳</option></select></label></div>
+          <div class="field-grid small-fields"><FormSelect :id="`${group.key}-first-month`" v-model="form[group.key].first" :label="`首月${group.title}`" :options="firstMonthOptions" /><FormSelect :id="`${group.key}-last-month`" v-model="form[group.key].last" :label="`末月${group.title}`" :options="lastMonthOptions" :disabled="form.start.slice(0, 7) === form.end.slice(0, 7)" /></div>
         </div>
         <p class="helper">同月入离职以首月规则为准；基数按政策上下限限制。入离职月开关为测算设置。</p>
         <label class="checkbox-label"><input v-model="form.customRates" type="checkbox" :disabled="!policy" /> 自定义缴费比例<span class="muted">默认取政策最低档</span></label>

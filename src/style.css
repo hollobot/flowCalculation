@@ -285,8 +285,46 @@ nav a:hover .nav-arrow {
   color: #657970;
 }
 
-.topbar .muted {
-  padding: 0 12px;
+.breadcrumb {
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
+  padding: 5px;
+  border: 1px solid transparent;
+  border-radius: 11px;
+  font-size: 12px;
+  font-weight: 650;
+  transition: background-color 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.breadcrumb:hover {
+  border-color: #dbe8de;
+  background: rgba(255, 255, 255, 0.72);
+  box-shadow: var(--shadow-sm);
+}
+
+.breadcrumb-current {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 29px;
+  padding: 5px 10px;
+  border: 1px solid #cfe3d5;
+  border-radius: 8px;
+  background: #e9f4ec;
+  color: var(--green);
+  font-size: 12px;
+  font-weight: 750;
+  line-height: 1;
+}
+
+.breadcrumb-current::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #3d9870;
+  box-shadow: 0 0 0 3px rgba(61, 152, 112, 0.12);
 }
 
 .database-badge {
@@ -519,6 +557,127 @@ input::placeholder {
 input[type="date"],
 input[type="month"] {
   font-size: 11px;
+}
+
+.form-select {
+  position: relative;
+  min-width: 0;
+  margin-bottom: 13px;
+}
+
+.form-select > label {
+  margin-bottom: 0;
+}
+
+.form-select-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  min-height: 42px;
+  margin-top: 7px;
+  padding: 7px 8px 7px 11px;
+  border: 1px solid #d7e3d9;
+  border-radius: var(--radius-sm);
+  background: #fff;
+  color: #29483c;
+  font-size: 12px;
+  text-align: left;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease, background-color 0.18s ease;
+}
+
+.form-select-trigger:hover:not(:disabled) {
+  border-color: #a7c8b1;
+  background: #fcfffc;
+}
+
+.form-select-trigger:focus,
+.form-select-trigger.is-open {
+  border-color: #4c9a78;
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(76, 154, 120, 0.13);
+}
+
+.form-select-icon {
+  display: grid;
+  place-items: center;
+  flex: 0 0 26px;
+  width: 26px;
+  height: 26px;
+  border: 1px solid #d6e5d9;
+  border-radius: 8px;
+  background: #f6faf6;
+  color: #6d8a78;
+  transition: color 0.18s ease, border-color 0.18s ease, background-color 0.18s ease;
+}
+
+.form-select-icon .ui-icon {
+  width: 15px;
+  height: 15px;
+  transition: transform 0.18s ease;
+}
+
+.form-select-trigger.is-open .form-select-icon {
+  border-color: #a9ceb4;
+  background: #eaf5ec;
+  color: var(--green);
+}
+
+.form-select-trigger.is-open .form-select-icon .ui-icon {
+  transform: rotate(180deg);
+}
+
+.form-select-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  z-index: 12;
+  display: grid;
+  gap: 3px;
+  max-height: 230px;
+  overflow-y: auto;
+  padding: 5px;
+  border: 1px solid #cfe0d2;
+  border-radius: var(--radius-md);
+  background: #fff;
+  box-shadow: 0 16px 36px rgba(25, 61, 36, 0.14);
+}
+
+.form-select-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  min-height: 38px;
+  padding: 9px 10px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: #4f675b;
+  font-size: 12px;
+  text-align: left;
+  transition: color 0.15s ease, background-color 0.15s ease;
+}
+
+.form-select-option:hover:not(:disabled),
+.form-select-option.active {
+  background: #edf6ef;
+  color: var(--green);
+}
+
+.form-select-option.selected {
+  background: #e5f2e8;
+  color: var(--green);
+  font-weight: 650;
+}
+
+.form-select-option .ui-icon {
+  width: 15px;
+  height: 15px;
+  stroke-width: 1.8;
 }
 
 .input-unit {
@@ -1155,6 +1314,7 @@ code {
 }
 
 .source-button {
+  position: relative;
   background: #2c7b63;
   color: #fff;
   border-color: #2c7b63;
@@ -1162,6 +1322,11 @@ code {
 
 .source-button:hover:not(:disabled) {
   background: #216650;
+}
+
+.source-action-buttons {
+  display: grid;
+  gap: 10px;
 }
 
 .icon-arrow-up-right {
@@ -1177,10 +1342,12 @@ code {
 }
 
 .source-button .icon-arrow-up-right {
+  position: absolute;
+  right: 10px;
   width: 26px;
   height: 26px;
   flex-basis: 26px;
-  margin-left: 2px;
+  margin-left: 0;
   padding: 6px;
   border: 1px solid rgba(255, 255, 255, .28);
   border-radius: 8px;
@@ -1785,6 +1952,10 @@ progress::-moz-progress-bar {
   margin-top: 22px;
 }
 
+.dialog-actions.single-action {
+  grid-template-columns: 1fr;
+}
+
 .local-sync-dialog {
   max-width: 560px;
 }
@@ -1883,6 +2054,16 @@ progress::-moz-progress-bar {
   font-size: 11px;
 }
 
+.missing-city-empty {
+  margin: 18px 0 4px !important;
+  padding: 18px;
+  border: 1px solid #d8e8dc;
+  border-radius: var(--radius-sm);
+  background: #f2f8f3;
+  color: #397057 !important;
+  text-align: center;
+}
+
 .result-heading {
   flex-wrap: wrap;
 }
@@ -1975,11 +2156,17 @@ progress::-moz-progress-bar {
 }
 
 @media (min-width: 721px) {
-  /* 城市同步以现有进度卡为高度基准，超出内容在模块内部滚动。 */
-  .sync-controls {
+  /* 两个同步卡片共享同一网格行高度，内容增长时始终保持等高。 */
+  .sync-layout {
+    align-items: stretch;
+  }
+
+  .sync-controls,
+  .progress-card {
     display: flex;
     flex-direction: column;
-    height: 700px;
+    min-height: 700px;
+    height: auto;
   }
 
   .sync-controls > .card-heading {
@@ -1989,26 +2176,7 @@ progress::-moz-progress-bar {
   .sync-controls .sync-controls-body {
     flex: 1;
     min-height: 0;
-    overflow-y: auto;
-    overscroll-behavior: contain;
-    scrollbar-width: thin;
-    scrollbar-color: #bdd2c4 transparent;
-  }
-
-  .sync-controls .sync-controls-body::-webkit-scrollbar {
-    width: 6px;
-  }
-
-  .sync-controls .sync-controls-body::-webkit-scrollbar-thumb {
-    border-radius: 999px;
-    background: #bdd2c4;
-  }
-
-  /* 同步进度保持原有固定高度和内部布局。 */
-  .progress-card {
-    display: flex;
-    flex-direction: column;
-    height: 700px;
+    overflow: visible;
   }
 
   .progress-card > .card-heading {
@@ -2209,8 +2377,14 @@ progress::-moz-progress-bar {
     padding: 6px 8px;
   }
 
-  .topbar .muted {
-    padding: 0 7px;
+  .breadcrumb {
+    font-size: 10px;
+  }
+
+  .breadcrumb-current {
+    min-height: 27px;
+    padding: 5px 8px;
+    font-size: 10px;
   }
 
   h1 {
@@ -2236,6 +2410,67 @@ progress::-moz-progress-bar {
     gap: 20px;
   }
 
+  .sync-controls-body {
+    padding: 14px;
+  }
+
+  .sync-action-module {
+    padding: 16px;
+  }
+
+  .sync-action-module + .sync-action-module {
+    margin-top: 14px;
+  }
+
+  .module-label {
+    margin-bottom: 13px;
+  }
+
+  .source-action-buttons {
+    gap: 8px;
+  }
+
+  .dialog-backdrop {
+    align-items: end;
+    overflow-y: auto;
+    padding: 12px;
+  }
+
+  .confirm-dialog {
+    width: 100%;
+    max-height: calc(100vh - 24px);
+    max-height: calc(100dvh - 24px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    border-radius: 18px 18px 12px 12px;
+  }
+
+  .local-sync-dialog {
+    max-width: 100%;
+  }
+
+  .local-picker-toolbar {
+    width: 100%;
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .local-picker-toolbar .library-search {
+    width: 100%;
+  }
+
+  .local-city-picker {
+    max-height: min(270px, 34dvh);
+  }
+
+  .picker-toggle {
+    align-self: flex-start;
+  }
+
+  .dialog-actions {
+    grid-template-columns: 1fr;
+  }
+
   .calculator-form fieldset {
     padding-left: 13px;
     padding-right: 13px;
@@ -2246,6 +2481,16 @@ progress::-moz-progress-bar {
   select {
     font-size: 16px;
     min-height: 45px;
+  }
+
+  .form-select-trigger {
+    min-height: 45px;
+    font-size: 16px;
+  }
+
+  .form-select-option {
+    min-height: 44px;
+    font-size: 14px;
   }
 
   input[type="date"],
@@ -2491,7 +2736,7 @@ progress::-moz-progress-bar {
     gap: 6px;
   }
 
-  .topbar>span:first-child {
+  .breadcrumb {
     white-space: nowrap;
   }
 
@@ -2537,8 +2782,7 @@ progress::-moz-progress-bar {
     text-align: left;
   }
 
-  .library-heading-tools,
-  .local-picker-toolbar {
+  .library-heading-tools {
     width: 100%;
     align-items: stretch;
     flex-direction: column;
@@ -2552,10 +2796,6 @@ progress::-moz-progress-bar {
     width: 100%;
   }
 
-  .picker-toggle {
-    align-self: flex-start;
-  }
-
   .city-entry-heading {
     align-items: stretch;
     flex-direction: column;
@@ -2565,16 +2805,8 @@ progress::-moz-progress-bar {
     width: 100%;
   }
 
-  .dialog-backdrop {
-    padding: 12px;
-  }
-
   .confirm-dialog {
     padding: 22px 18px;
-  }
-
-  .dialog-actions {
-    grid-template-columns: 1fr;
   }
 
   .empty-features {

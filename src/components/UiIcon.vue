@@ -39,5 +39,8 @@ defineProps({
     <template v-else-if="name === 'close'">
       <path d="m6 6 8 8M14 6l-8 8" />
     </template>
+    <template v-else-if="name === 'chevron-down'">
+      <path d="m5.5 7.75 4.5 4.5 4.5-4.5" />
+    </template>
   </svg>
 </template>

@@ -13,9 +13,13 @@ const connected = ref(false);
 const connecting = ref(false);
 const submitting = ref(false);
 const preparingGlobal = ref(false);
+const preparingMissing = ref(false);
 const error = ref('');
 const job = ref(null);
 const globalConfirm = ref(null);
+const missingConfirm = ref(null);
+const missingSelection = ref([]);
+const missingQuery = ref('');
 const localConfirm = ref(false);
 const localCandidates = ref([]);
 const localSelection = ref([]);
@@ -43,6 +47,13 @@ const filteredLocalCandidates = computed(() => {
 });
 const allVisibleLocalSelected = computed(() => filteredLocalCandidates.value.length > 0
   && filteredLocalCandidates.value.every((city) => localSelection.value.includes(city.name)));
+const filteredMissingCities = computed(() => {
+  const keyword = missingQuery.value.trim().toLocaleLowerCase();
+  const cities = missingConfirm.value?.cities || [];
+  return keyword ? cities.filter((city) => city.toLocaleLowerCase().includes(keyword)) : cities;
+});
+const allVisibleMissingSelected = computed(() => filteredMissingCities.value.length > 0
+  && filteredMissingCities.value.every((city) => missingSelection.value.includes(city)));
 const labels = { pending: '等待', running: '同步中', success: '已更新', failed: '失败', skipped: '已跳过' };
 
 async function poll() {
@@ -138,6 +149,48 @@ function durationText(count) {
   return minutes < 1 ? '不到 1 分钟' : `约 ${minutes} 分钟`;
 }
 
+async function prepareMissingSync() {
+  preparingMissing.value = true;
+  error.value = '';
+  try {
+    const data = await api('source/cities');
+    if (!data.cities?.length) throw new Error('数据源没有返回可同步的城市');
+    // 只按城市是否存在于 cities 表判断，不把本地已有但政策为空的城市列为缺失。
+    const localNames = new Set(props.cities.map((city) => city.name));
+    const missingCities = data.cities.filter((city) => !localNames.has(city));
+    missingConfirm.value = { cities: missingCities, sourceCount: data.cities.length };
+    missingSelection.value = [...missingCities];
+    missingQuery.value = '';
+  } catch (cause) {
+    if (!disposed) error.value = cause.message;
+  } finally { preparingMissing.value = false; }
+}
+
+function toggleMissingCity(name) {
+  missingSelection.value = missingSelection.value.includes(name)
+    ? missingSelection.value.filter((city) => city !== name)
+    : [...missingSelection.value, name];
+}
+
+function toggleVisibleMissingCities() {
+  const visibleNames = filteredMissingCities.value;
+  if (allVisibleMissingSelected.value) {
+    missingSelection.value = missingSelection.value.filter((name) => !visibleNames.includes(name));
+  } else {
+    missingSelection.value = [...new Set([...missingSelection.value, ...visibleNames])];
+  }
+}
+
+function cancelMissingSync() {
+  missingConfirm.value = null;
+}
+
+async function confirmMissingSync() {
+  const cities = [...missingSelection.value];
+  missingConfirm.value = null;
+  if (cities.length) await submitJob('sync/cities', { cities });
+}
+
 async function prepareGlobalSync() {
   preparingGlobal.value = true;
   error.value = '';
@@ -205,14 +258,19 @@ onUnmounted(() => { disposed = true; clearTimeout(timer); });
         </div>
         <div class="sync-action-module source-sync-module">
           <div class="module-label"><span class="step source-step">03</span>
-            <h3>数据源全城市</h3><span class="pill source-pill">需要确认</span>
+            <h3>数据源城市</h3><span class="pill source-pill">两种方式</span>
           </div>
-          <p class="helper">先读取数据源城市列表，再逐个同步。请求数量较多，预计耗时较长，开始前会显示确认信息。</p>
-          <button class="button source-button"
-            :disabled="!connected || running || submitting || preparingGlobal || loading" @click="prepareGlobalSync">{{
-              preparingGlobal ? '正在读取数据源城市…' : '读取并同步全部城市' }}
-            <ArrowUpRightIcon class="icon-arrow-up-right" />
-          </button>
+          <p class="helper">可先找出本地尚未保存的城市并勾选同步，也可以完整刷新数据源全部城市。</p>
+          <div class="source-action-buttons">
+            <button class="button secondary-button"
+              :disabled="!connected || running || submitting || preparingMissing || preparingGlobal || loading"
+              @click="prepareMissingSync">{{ preparingMissing ? '正在查询缺失城市…' : '查询并选择缺失城市' }}</button>
+            <button class="button source-button"
+              :disabled="!connected || running || submitting || preparingMissing || preparingGlobal || loading"
+              @click="prepareGlobalSync">{{ preparingGlobal ? '正在读取全部城市…' : '全量同步全部城市' }}
+              <ArrowUpRightIcon class="icon-arrow-up-right" />
+            </button>
+          </div>
         </div>
         <button v-if="isLocalHost && !connected" class="button secondary-button reconnect" :disabled="connecting"
           @click="connect">{{ connecting ? '正在连接…' : '重新连接本地服务' }}</button>
@@ -284,6 +342,38 @@ onUnmounted(() => { disposed = true; clearTimeout(timer); });
       <h3>同步完成后如何发布？</h3>
       <p>将 <code>public/data/policies.sqlite</code> 提交并推送到仓库，随站点一起发布即可。在线页面将读取更新后的城市数据。</p>
     </div>
+  </div>
+
+  <div v-if="missingConfirm" class="dialog-backdrop" role="presentation" @click.self="cancelMissingSync">
+    <section class="confirm-dialog local-sync-dialog" role="dialog" aria-modal="true"
+      aria-labelledby="missing-sync-title">
+      <span class="dialog-kicker">MISSING CITY SYNC</span>
+      <h2 id="missing-sync-title">选择本地缺少的城市</h2>
+      <p>数据源共有 <strong>{{ missingConfirm.sourceCount }}</strong> 个城市，本地尚未保存 <strong>{{
+        missingConfirm.cities.length }}</strong> 个。</p>
+      <template v-if="missingConfirm.cities.length">
+        <div class="local-picker-toolbar"><label class="library-search">
+            <UiIcon name="search" /><input v-model="missingQuery" type="search" placeholder="查询缺失城市"
+              aria-label="查询本地缺少的城市" />
+          </label><button type="button" class="text-button picker-toggle" @click="toggleVisibleMissingCities">{{
+            allVisibleMissingSelected ? '取消当前筛选' : '全选当前筛选' }}</button></div>
+        <p class="local-selection-count">已选择 <strong>{{ missingSelection.length }}</strong> / {{
+          missingConfirm.cities.length }} 个城市</p>
+        <div class="local-city-picker" role="group" aria-label="本地缺少的城市列表">
+          <label v-for="city in filteredMissingCities" :key="city" class="local-city-row">
+            <input type="checkbox" :checked="missingSelection.includes(city)" @change="toggleMissingCity(city)" />
+            <span><b>{{ city }}</b><small>本地尚未保存</small></span>
+          </label>
+          <p v-if="!filteredMissingCities.length" class="local-picker-empty">没有找到匹配的城市。</p>
+        </div>
+        <p class="dialog-note">只会同步当前勾选的缺失城市；查询或同步失败的城市不会写入本地城市表。</p>
+      </template>
+      <p v-else class="missing-city-empty">本地已包含数据源返回的全部城市，无需补充同步。</p>
+      <div :class="['dialog-actions', { 'single-action': !missingConfirm.cities.length }]"><button class="button secondary-button" :disabled="submitting"
+          @click="cancelMissingSync">关闭</button><button v-if="missingConfirm.cities.length"
+          class="button primary-button" :disabled="submitting || !missingSelection.length"
+          @click="confirmMissingSync">同步选中的 {{ missingSelection.length }} 个城市</button></div>
+    </section>
   </div>
 
   <div v-if="globalConfirm" class="dialog-backdrop" role="presentation" @click.self="cancelGlobalSync">
