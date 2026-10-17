@@ -1,0 +1,23 @@
+{
+  "name": "flow-calculation",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=24.0.0" },
+  "scripts": {
+    "dev": "node server/index.js --dev",
+    "server": "node server/index.js",
+    "db:init": "node scripts/init-db.js",
+    "build": "vite build",
+    "preview": "vite preview --host 127.0.0.1"
+  },
+  "dependencies": {
+    "decimal.js": "^10.6.0",
+    "sql.js": "^1.15.0",
+    "vue": "^3.5.44"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^6.0.10",
+    "vite": "^8.3.4"
+  }
+}
