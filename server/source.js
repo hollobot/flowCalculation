@@ -1,3 +1,5 @@
+import { readSeriousIllness } from '../src/domain/policy-extras.js';
+
 const portalRoot = 'https://payroll.gongzige.com/policy/api/portal';
 const sourceRoot = `${portalRoot}/get_by_city`;
 
@@ -52,12 +54,14 @@ function rateList(value, label) {
 }
 
 function rounding(config, prefix) {
-  const precision = numeric(config[`${prefix}Accuracy`], '小数位数');
-  const mode = numeric(config[`${prefix}RoundMode`], '进位规则');
-  if (!Number.isInteger(precision) || precision > 2 || ![1, 2, 3, 4].includes(mode)) {
-    throw new Error('城市数据缺少可识别的金额精度或进位规则，无法计算');
-  }
-  return { precision, roundMode: mode };
+  const accuracy = config[`${prefix}Accuracy`];
+  const precision = accuracy === '' || accuracy === null || accuracy === undefined ? NaN : Number(accuracy);
+  const mode = Number(config[`${prefix}RoundMode`]);
+  // 有基数和比例即可测算；未提供有效舍入规则时，默认保留两位、四舍五入。
+  return {
+    precision: Number.isInteger(precision) && precision >= 0 && precision <= 2 ? precision : 2,
+    roundMode: [1, 2, 3, 4].includes(mode) ? mode : 1,
+  };
 }
 
 function contributionSide(config, lower, upper, rate, label) {
@@ -101,19 +105,16 @@ export function normalizePolicy(raw) {
     company: contributionSide(fundConfig, 'AQ', 'AR', 'companyRate', '公司公积金'),
     personal: contributionSide(fundConfig, 'AQ', 'AR', 'personalRate', '个人公积金'),
   });
-  const unsupported = [];
-  for (const key of ['companySeriousIllnessAmounts', 'personalSeriousIllnessAmounts']) {
-    if (config[key]?.length) unsupported.push('附加大病医疗缴费');
-  }
-  if (config.AW || config.AX) unsupported.push('地区附加公积金缴费');
+  const fundTaxFreeLimit = Number(config.AU);
   return {
     id: String(raw.id), name: raw.name, city: raw.city, province: raw.province,
     effectiveAt: numeric(raw.stratedAt, '生效时间') ?? 0,
     updatedAt: numeric(raw.updatedAt, '更新时间') ?? numeric(raw.createdAt, '创建时间') ?? 0,
     description: String(config.F ?? ''),
     note: [config.AY, config.AS1, config.remark].filter(Boolean).join('；'),
-    fundTaxFreeLimit: numeric(config.AU, '公积金免税上限'),
-    unsupported: [...new Set(unsupported)], items,
+    // 文字备注和额外免税口径保留供参考，不作为基础缴费测算的前置条件。
+    fundTaxFreeLimit: Number.isFinite(fundTaxFreeLimit) && fundTaxFreeLimit > 0 ? fundTaxFreeLimit : null,
+    seriousIllness: readSeriousIllness(config), items,
   };
 }
 

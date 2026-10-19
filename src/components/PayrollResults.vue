@@ -5,6 +5,11 @@ import CopyAmount from './CopyAmount.vue';
 import UiIcon from './UiIcon.vue';
 const props = defineProps({ result: { type: Object, default: null }, dirty: Boolean });
 const { copied, pending, message, error, copy, reset } = useAmountCopy(() => props.result);
+
+function contributionBasis(item, side) {
+  if (!item[side].available) return '—';
+  return item.fixed ? '按月定额' : `${item[side].base} / ${formatRate(item[side].rate)}`;
+}
 </script>
 
 <template>
@@ -44,8 +49,8 @@ const { copied, pending, message, error, copy, reset } = useAmountCopy(() => pro
                 <details class="month-details">
                   <summary>社保公积金与计税过程 <span>公司缴纳 {{ formatMoney(row.company) }} 元</span></summary>
                   <div class="details-body">
-                    <p class="helper">浮动后整月工资 {{ formatMoney(row.fullSalary) }} 元（浮动 {{ row.offset >= 0 ? '+' : '' }}{{ formatMoney(row.offset) }}）；{{ row.attendance.fullMonth ? '本月按完整月薪计算。' : `按 ${row.attendance.paidDays} ÷ ${row.attendance.totalDays} 折算，含在职期间法定带薪节日。` }}</p>
-                    <div class="table-scroll"><table class="contribution-table"><thead><tr><th>项目</th><th>个人基数 / 比例</th><th>个人缴纳</th><th>公司基数 / 比例</th><th>公司缴纳</th><th>精度</th></tr></thead><tbody><tr v-for="item in row.details" :key="item.key"><th>{{ item.label }}<small v-if="!item.active">本月不缴</small></th><td>{{ item.personal.available ? `${item.personal.base} / ${formatRate(item.personal.rate)}` : '—' }}</td><td>{{ formatMoney(item.personal.amount) }}</td><td>{{ item.company.available ? `${item.company.base} / ${formatRate(item.company.rate)}` : '—' }}</td><td>{{ formatMoney(item.company.amount) }}</td><td>{{ item.precision }} 位 / {{ roundLabels[item.roundMode] }}</td></tr></tbody></table></div>
+                    <p class="helper">固定月薪 {{ formatMoney(row.configuredSalary) }} 元；<template v-if="row.probationApplied">试用期按 {{ formatRate(row.probationRate) }} 计算为 {{ formatMoney(row.salaryAfterProbation) }} 元；</template>浮动后整月工资 {{ formatMoney(row.fullSalary) }} 元（{{ row.floating ? `浮动 ${row.offset >= 0 ? '+' : ''}${formatMoney(row.offset)}` : '本月未启用浮动' }}）；{{ row.attendance.fullMonth ? '本月按完整月薪计算。' : `按 ${row.attendance.paidDays} ÷ ${row.attendance.totalDays} 折算，含在职期间法定带薪节日。` }}</p>
+                    <div class="table-scroll"><table class="contribution-table"><thead><tr><th>项目</th><th>个人基数 / 比例</th><th>个人缴纳</th><th>公司基数 / 比例</th><th>公司缴纳</th><th>精度</th></tr></thead><tbody><tr v-for="item in row.details" :key="item.key"><th>{{ item.label }}<small v-if="!item.active">本月不缴</small></th><td>{{ contributionBasis(item, 'personal') }}</td><td>{{ formatMoney(item.personal.amount) }}</td><td>{{ contributionBasis(item, 'company') }}</td><td>{{ formatMoney(item.company.amount) }}</td><td>{{ item.precision }} 位 / {{ roundLabels[item.roundMode] }}</td></tr></tbody></table></div>
                     <div class="tax-explanation">
                       <p>累计应税所得 = 累计收入 {{ formatMoney(row.cumulative.income) }} − 个人五险一金 {{ formatMoney(row.cumulative.contributions) }} − 减除费用 {{ formatMoney(row.cumulative.deduction) }} = <b>{{ formatMoney(row.cumulative.taxable) }}</b> 元（最低为 0）。</p>
                       <p>工资个税 = 累计应税所得 × {{ formatRate(row.cumulative.rate) }} − 速算扣除数 {{ formatMoney(row.cumulative.quickDeduction) }} − 此前已预扣 {{ formatMoney(row.cumulative.previousWithheld) }} = <b>{{ formatMoney(row.salaryTax) }}</b> 元（本月不产生负税额）。</p>

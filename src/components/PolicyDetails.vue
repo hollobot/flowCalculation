@@ -3,6 +3,8 @@ import { formatRate, roundLabels } from '../domain/money.js';
 import ArrowUpRightIcon from './ArrowUpRightIcon.vue';
 defineProps({ policy: { type: Object, required: true } });
 const range = (side) => side ? `${side.min.toLocaleString('zh-CN')} – ${side.max.toLocaleString('zh-CN')}` : '—';
+const sides = [{ key: 'personal', label: '个人' }, { key: 'company', label: '公司' }];
+const fixedAmounts = (entries) => entries.map((entry) => `${entry.months.join('、')} 月：${entry.amount} 元/月`).join('；');
 </script>
 
 <template>
@@ -10,8 +12,8 @@ const range = (side) => side ? `${side.min.toLocaleString('zh-CN')} – ${side.m
     <summary>查看本次使用的城市政策 <span>{{ policy.name }} <ArrowUpRightIcon class="icon-arrow-up-right" /></span></summary>
     <div class="details-body">
       <p class="helper">以下为当前城市保存的缴费标准，默认使用最低档比例。</p>
-      <p v-if="policy.unsupported?.length" class="notice warning">含尚未支持的{{ policy.unsupported.join('、') }}，计算时将提示处理。</p>
-      <p v-if="policy.fundTaxFreeLimit" class="notice warning">额外公积金免税上限为 {{ policy.fundTaxFreeLimit }}，需核对其计税口径后才能计算。</p>
+      <p class="helper">按已保存的基数、比例及明确的附加金额测算；文字备注中的其他缴费规则不另行计入。</p>
+      <p v-if="policy.fundTaxFreeLimit" class="helper">政策记录的额外公积金免税上限为 {{ policy.fundTaxFreeLimit }}；本次测算未单独应用该上限。</p>
       <div class="table-scroll">
         <table class="policy-table">
           <caption class="sr-only">社保公积金缴费基数、比例和舍入规则</caption>
@@ -19,6 +21,9 @@ const range = (side) => side ? `${side.min.toLocaleString('zh-CN')} – ${side.m
           <tbody><tr v-for="item in policy.items" :key="item.key"><th>{{ item.label }}</th><td>{{ range(item.personal) }}</td><td>{{ formatRate(item.personal?.rate) }}</td><td>{{ range(item.company) }}</td><td>{{ formatRate(item.company?.rate) }}</td><td>{{ item.precision }} 位 · {{ roundLabels[item.roundMode] }}</td></tr></tbody>
         </table>
       </div>
+      <template v-for="side in sides" :key="side.key">
+        <p v-if="policy.seriousIllness?.[side.key]?.length" class="helper">{{ side.label }}附加大病医疗：{{ fixedAmounts(policy.seriousIllness[side.key]) }}。随逐月社保缴费开关计算。</p>
+      </template>
       <p class="helper">展示默认最低档比例；工伤取最低档，补充公积金不缴。自定义比例以计算明细为准。</p>
     </div>
   </details>
