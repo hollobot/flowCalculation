@@ -4,7 +4,7 @@ import { readSeriousIllness } from '../domain/policy-extras.js';
 
 let runtime;
 
-/** 旧库仅在原始响应中保存附加金额，读取时补齐即可生效，无需重新同步或改写数据库。 */
+/** 旧库仅在原始响应中保存附加金额，读取时补齐供政策详情展示，无需改写数据库。 */
 function readPolicy(policyJson, rawJson) {
   if (!policyJson) return null;
   const policy = JSON.parse(policyJson);

@@ -40,6 +40,10 @@ const baseModeOptions = [
   { value: 'salary', label: '固定月薪全额' },
   { value: 'custom', label: '自定义基数' },
 ];
+const bonusModeOptions = [
+  { value: 'separate', label: '单独计税' },
+  { value: 'combined', label: '并入综合所得' },
+];
 
 watch(() => props.cities, (cities) => {
   if (!form.city && cities.length) form.city = (cities.find((city) => city.policy) || cities[0]).name;
@@ -155,7 +159,7 @@ function calculate(regenerate = false) {
       </fieldset>
       <fieldset><legend><span class="step">03</span> 年终奖</legend>
         <label class="checkbox-label"><input v-model="form.bonusEnabled" type="checkbox" /> 本次计算包含年终奖</label>
-        <template v-if="form.bonusEnabled"><div class="field-grid"><label>发放年月<input v-model="form.bonusMonth" type="month" :min="form.start.slice(0, 7)" :max="form.end.slice(0, 7)" required /></label><label>奖金金额（不含工资）<input v-model.number="form.bonusAmount" type="number" min="0" max="1000000000" step="0.01" required /></label></div><label>计税方式<select v-model="form.bonusMode"><option value="separate">单独计税</option><option value="combined">并入综合所得</option></select></label><p class="helper">单独计税政策已收录至 2027 年底，奖金不会按出勤天数折算。</p></template>
+        <template v-if="form.bonusEnabled"><div class="field-grid"><label>发放年月<input v-model="form.bonusMonth" type="month" :min="form.start.slice(0, 7)" :max="form.end.slice(0, 7)" required /></label><label>奖金金额（不含工资）<input v-model.number="form.bonusAmount" type="number" min="0" max="1000000000" step="0.01" required /></label></div><FormSelect id="bonus-mode" v-model="form.bonusMode" label="计税方式" :options="bonusModeOptions" /><p class="helper">单独计税政策已收录至 2027 年底，奖金不会按出勤天数折算。</p></template>
       </fieldset>
       <div v-if="error" class="notice error" role="alert">{{ error }}</div>
       <div class="form-actions"><button class="button primary-button" type="submit" :disabled="!policy || loading">计算工资 <UiIcon name="arrow-right" class="button-end-icon" /></button><button class="button secondary-button" type="button" :disabled="!policy || loading" @click="calculate(true)">重新生成浮动</button></div>

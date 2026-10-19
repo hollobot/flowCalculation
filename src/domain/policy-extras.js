@@ -1,4 +1,4 @@
-/** 只提取金额与月份明确的大病医疗定额；附加字段不影响基础社保公积金计算。 */
+/** 只提取金额与月份明确的大病医疗定额供政策详情展示，不参与工资测算。 */
 export function readSeriousIllness(config = {}) {
   return Object.fromEntries(['personal', 'company'].map((side) => {
     const entries = config?.[`${side}SeriousIllnessAmounts`];

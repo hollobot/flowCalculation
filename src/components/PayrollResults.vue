@@ -1,4 +1,5 @@
 <script setup>
+import { computed } from 'vue';
 import { formatMoney, formatRate, roundLabels } from '../domain/money.js';
 import { useAmountCopy } from '../composables/useAmountCopy.js';
 import CopyAmount from './CopyAmount.vue';
@@ -6,10 +7,56 @@ import UiIcon from './UiIcon.vue';
 const props = defineProps({ result: { type: Object, default: null }, dirty: Boolean });
 const { copied, pending, message, error, copy, reset } = useAmountCopy(() => props.result);
 
+/** 单独计税的奖金拆成独立记录，工资与奖金行相加仍等于原月度结果。 */
+const displayRows = computed(() => (props.result?.rows || []).flatMap((row) => {
+  if (!row.separateBonus) return [{ ...row, recordKey: `${row.month}:salary`, recordType: 'salary' }];
+  const salaryRow = {
+    ...row,
+    recordKey: `${row.month}:salary`,
+    recordType: 'salary',
+    bonus: 0,
+    bonusTax: 0,
+    tax: row.salaryTax,
+    net: row.gross - row.personal - row.salaryTax,
+  };
+  const bonusRow = {
+    ...row,
+    recordKey: `${row.month}:bonus`,
+    recordType: 'bonus',
+    displayedGross: 0,
+    personal: 0,
+    company: 0,
+    tax: row.bonusTax,
+    net: row.bonus - row.bonusTax,
+  };
+  return [salaryRow, bonusRow];
+}));
+
+/** 在每个自然年的最后一条记录后插入年度合计，口径与当前表格各列保持一致。 */
+const tableRows = computed(() => {
+  const rows = displayRows.value;
+  const result = [];
+  let totals;
+  for (const [index, row] of rows.entries()) {
+    const year = row.month.slice(0, 4);
+    if (!totals || totals.year !== year) {
+      totals = { year, displayedGross: 0, bonus: 0, personal: 0, tax: 0, net: 0 };
+    }
+    for (const field of ['displayedGross', 'bonus', 'personal', 'tax', 'net']) totals[field] += row[field];
+    result.push(row);
+    if (rows[index + 1]?.month.slice(0, 4) !== year) {
+      result.push({ ...totals, recordKey: `year:${year}`, recordType: 'yearTotal' });
+    }
+  }
+  return result;
+});
+
 function contributionBasis(item, side) {
   if (!item[side].available) return '—';
   return item.fixed ? '按月定额' : `${item[side].base} / ${formatRate(item[side].rate)}`;
 }
+
+const copyField = (row, field) => row.recordType === 'bonus' ? `bonus-${field}` : field;
 </script>
 
 <template>
@@ -36,17 +83,32 @@ function contributionBasis(item, side) {
           <table class="payroll-table">
             <caption class="sr-only">每月工资、年终奖、社保公积金及个税明细</caption>
             <thead><tr><th>月份</th><th>税前工资</th><th>年终奖</th><th>个人五险一金</th><th>个人所得税</th><th>到手收入</th></tr></thead>
-            <tbody v-for="row in result.rows" :key="row.month" class="month-group">
-              <tr class="month-row">
-                <th>{{ row.month }}<small>{{ row.attendance.fullMonth ? '整月' : `${row.attendance.paidDays} / ${row.attendance.totalDays} 计薪天` }}</small></th>
-                <td data-label="税前工资"><CopyAmount :amount="row.gross" :label="`${row.month} 税前工资`" :copied="copied.has(`${row.month}:gross`)" :pending="pending.has(`${row.month}:gross`)" @copy="copy(row.month, 'gross', row.gross, '税前工资')" /></td>
+            <tbody v-for="row in tableRows" :key="row.recordKey" class="month-group">
+              <tr v-if="row.recordType === 'yearTotal'" class="month-row year-total-row">
+                <th>{{ row.year }} 年合计</th>
+                <td data-label="税前工资">{{ formatMoney(row.displayedGross) }}</td>
                 <td data-label="年终奖">{{ formatMoney(row.bonus) }}</td>
                 <td data-label="个人五险一金">{{ formatMoney(row.personal) }}</td>
-                <td data-label="个人所得税"><CopyAmount :amount="row.tax" :label="`${row.month} 个人所得税`" :copied="copied.has(`${row.month}:tax`)" :pending="pending.has(`${row.month}:tax`)" @copy="copy(row.month, 'tax', row.tax, '个人所得税')" /></td>
+                <td data-label="个人所得税">{{ formatMoney(row.tax) }}</td>
+                <td data-label="到手收入" class="net-amount">{{ formatMoney(row.net) }}</td>
+              </tr>
+              <template v-else>
+              <tr class="month-row">
+                <th>{{ row.month }}<template v-if="row.recordType === 'bonus'"> 年终奖</template><small>{{ row.recordType === 'bonus' ? '全年一次性奖金收入' : (row.attendance.fullMonth ? '工资 · 整月' : `工资 · ${row.attendance.paidDays} / ${row.attendance.totalDays} 计薪天`) }}</small></th>
+                <td data-label="税前工资"><CopyAmount :amount="row.displayedGross" :label="`${row.month} 税前工资`" :copied="copied.has(`${row.month}:${copyField(row, 'gross')}`)" :pending="pending.has(`${row.month}:${copyField(row, 'gross')}`)" @copy="copy(row.month, copyField(row, 'gross'), row.displayedGross, '税前工资')" /></td>
+                <td data-label="年终奖">{{ formatMoney(row.bonus) }}</td>
+                <td data-label="个人五险一金">{{ formatMoney(row.personal) }}</td>
+                <td data-label="个人所得税"><CopyAmount :amount="row.tax" :label="`${row.month} 个人所得税`" :copied="copied.has(`${row.month}:${copyField(row, 'tax')}`)" :pending="pending.has(`${row.month}:${copyField(row, 'tax')}`)" @copy="copy(row.month, copyField(row, 'tax'), row.tax, '个人所得税')" /></td>
                 <td data-label="到手收入" class="net-amount">{{ formatMoney(row.net) }}</td>
               </tr>
               <tr class="breakdown-row"><td colspan="6">
-                <details class="month-details">
+                <details v-if="row.recordType === 'bonus'" class="month-details">
+                  <summary>全年一次性奖金计税过程</summary>
+                  <div class="details-body tax-explanation">
+                    <p>全年一次性奖金收入 {{ formatMoney(row.bonus) }} 元，单独计税 {{ formatMoney(row.bonusTax) }} 元，到手奖金为 <b>{{ formatMoney(row.net) }}</b> 元。</p>
+                  </div>
+                </details>
+                <details v-else class="month-details">
                   <summary>社保公积金与计税过程 <span>公司缴纳 {{ formatMoney(row.company) }} 元</span></summary>
                   <div class="details-body">
                     <p class="helper">固定月薪 {{ formatMoney(row.configuredSalary) }} 元；<template v-if="row.probationApplied">试用期按 {{ formatRate(row.probationRate) }} 计算为 {{ formatMoney(row.salaryAfterProbation) }} 元；</template>浮动后整月工资 {{ formatMoney(row.fullSalary) }} 元（{{ row.floating ? `浮动 ${row.offset >= 0 ? '+' : ''}${formatMoney(row.offset)}` : '本月未启用浮动' }}）；{{ row.attendance.fullMonth ? '本月按完整月薪计算。' : `按 ${row.attendance.paidDays} ÷ ${row.attendance.totalDays} 折算，含在职期间法定带薪节日。` }}</p>
@@ -54,14 +116,14 @@ function contributionBasis(item, side) {
                     <div class="tax-explanation">
                       <p>累计应税所得 = 累计收入 {{ formatMoney(row.cumulative.income) }} − 个人五险一金 {{ formatMoney(row.cumulative.contributions) }} − 减除费用 {{ formatMoney(row.cumulative.deduction) }} = <b>{{ formatMoney(row.cumulative.taxable) }}</b> 元（最低为 0）。</p>
                       <p>工资个税 = 累计应税所得 × {{ formatRate(row.cumulative.rate) }} − 速算扣除数 {{ formatMoney(row.cumulative.quickDeduction) }} − 此前已预扣 {{ formatMoney(row.cumulative.previousWithheld) }} = <b>{{ formatMoney(row.salaryTax) }}</b> 元（本月不产生负税额）。</p>
-                      <p v-if="row.bonusTax">本月另有年终奖单独计税 {{ formatMoney(row.bonusTax) }} 元。</p>
                     </div>
                     <p v-if="row.net < 0" class="notice warning">本月收入不足以覆盖个人缴费，净额为负，表示仍需补足的金额。</p>
                   </div>
                 </details>
               </td></tr>
+              </template>
             </tbody>
-            <tfoot><tr><th>合计</th><td>{{ formatMoney(result.totals.gross) }}</td><td>{{ formatMoney(result.totals.bonus) }}</td><td>{{ formatMoney(result.totals.personal) }}</td><td>{{ formatMoney(result.totals.tax) }}</td><td class="net-amount">{{ formatMoney(result.totals.net) }}</td></tr></tfoot>
+            <tfoot><tr><th>全部合计</th><td>{{ formatMoney(result.totals.displayedGross) }}</td><td>{{ formatMoney(result.totals.bonus) }}</td><td>{{ formatMoney(result.totals.personal) }}</td><td>{{ formatMoney(result.totals.tax) }}</td><td class="net-amount">{{ formatMoney(result.totals.net) }}</td></tr></tfoot>
           </table>
         </div>
       </div>

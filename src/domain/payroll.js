@@ -36,7 +36,8 @@ function shouldContribute(month, input, group) {
 }
 
 function calculateContributions(policy, input, month, monthlySalary) {
-  const details = policy.items.map((item) => {
+  // 附加大病医疗仅作为政策信息保留；工资测算只汇总有基数和比例的缴费项目。
+  return policy.items.map((item) => {
     const settings = input[item.group];
     const active = shouldContribute(month, input, item.group);
     const result = { key: item.key, label: item.label, precision: item.precision, roundMode: item.roundMode, active };
@@ -66,9 +67,6 @@ function calculateContributions(policy, input, month, monthlySalary) {
     }
     return result;
   });
-  const seriousIllness = calculateSeriousIllness(policy, input, month);
-  if (seriousIllness) details.push(seriousIllness);
-  return details;
 }
 
 /**
@@ -109,22 +107,6 @@ function calculateMonthlySalary(input, month, monthIndex, offsets, amplitude) {
   };
 }
 
-/** 附加大病医疗按源数据指定月份收取定额，跟随逐月社保开关，不随自定义比例变化。 */
-function calculateSeriousIllness(policy, input, month) {
-  const rules = policy.seriousIllness;
-  if (!rules?.personal?.length && !rules?.company?.length) return null;
-  const active = shouldContribute(month, input, 'social');
-  const monthNumber = Number(month.slice(5, 7));
-  const result = { key: 'seriousIllness', label: '附加大病医疗', fixed: true, precision: 2, roundMode: 1, active };
-  for (const side of ['personal', 'company']) {
-    const entries = rules[side] || [];
-    const amount = entries.filter((entry) => entry.months.includes(monthNumber))
-      .reduce((sum, entry) => sum + cents(entry.amount), 0);
-    result[side] = { base: 0, rate: 0, available: entries.length > 0, amount: active ? amount : 0 };
-  }
-  return result;
-}
-
 /** 纯函数：不访问网络、数据库或随机数，同一参数和浮动表始终得到同一结果。 */
 export function calculatePayroll(input, policy, offsets) {
   if (!policy) throw new Error('城市不存在，请先在本地添加并同步');
@@ -159,6 +141,7 @@ export function calculatePayroll(input, policy, offsets) {
     const company = details.reduce((sum, item) => sum + item.company.amount, 0);
     const currentBonus = input.bonusEnabled && month === input.bonusMonth ? bonus : 0;
     const combinedBonus = input.bonusMode === 'combined' ? currentBonus : 0;
+    const separateBonus = input.bonusEnabled && month === input.bonusMonth && input.bonusMode === 'separate';
     income += gross + combinedBonus;
     contributions += personal;
     const deduction = employedMonths * 500_000;
@@ -173,7 +156,10 @@ export function calculatePayroll(input, policy, offsets) {
       month,
       ...monthlySalary,
       gross,
+      // 并入综合所得时，结果表的“税前工资”展示工资与奖金之和；奖金仍单列展示。
+      displayedGross: gross + combinedBonus,
       bonus: currentBonus,
+      separateBonus,
       personal,
       company,
       salaryTax,
@@ -195,7 +181,7 @@ export function calculatePayroll(input, policy, offsets) {
     });
   }
   const totals = Object.fromEntries(
-    ['gross', 'bonus', 'personal', 'company', 'tax', 'net'].map((key) => [
+    ['gross', 'displayedGross', 'bonus', 'personal', 'company', 'tax', 'net'].map((key) => [
       key,
       rows.reduce((sum, row) => sum + row[key], 0),
     ]),
