@@ -8,17 +8,36 @@ import PolicyDetails from './PolicyDetails.vue';
 import CityCombobox from './CityCombobox.vue';
 import UiIcon from './UiIcon.vue';
 import FormSelect from './FormSelect.vue';
+import { loadCalculatorConfig, saveCalculatorConfig } from '../services/calculator-cache.js';
 
 defineOptions({ name: 'CalculatorPage' });
 const props = defineProps({ cities: { type: Array, required: true }, loading: Boolean });
-const form = reactive({
-  city: '', salary: 8000, fluctuation: 540.2, start: '2025-02-01', end: '2026-02-01',
-  probation: { enabled: false, months: 3, percent: 80 }, monthlyIncome: {},
-  bonusEnabled: false, bonusMonth: '2026-02', bonusAmount: 50000, bonusMode: 'separate',
-  social: { mode: 'minimum', base: 5000, first: 'auto', last: 'yes' },
-  fund: { mode: 'minimum', base: 5000, first: 'auto', last: 'yes' },
-  customRates: false, rates: {},
-});
+const isRecord = (value) => value && typeof value === 'object' && !Array.isArray(value);
+const cachedConfig = loadCalculatorConfig();
+
+/** 只恢复已知配置字段，并用默认值补齐以后新增的配置。 */
+function createInitialForm(cache) {
+  const defaults = {
+    city: '', salary: 8000, fluctuation: 540.2, start: '2025-02-01', end: '2026-02-01',
+    probation: { enabled: false, months: 3, percent: 80 }, monthlyIncome: {},
+    bonusEnabled: false, bonusMonth: '2026-02', bonusAmount: 50000, bonusMode: 'separate',
+    social: { mode: 'minimum', base: 5000, first: 'auto', last: 'yes' },
+    fund: { mode: 'minimum', base: 5000, first: 'auto', last: 'yes' },
+    customRates: false, rates: {},
+  };
+  if (!isRecord(cache)) return defaults;
+  const restored = Object.fromEntries(Object.keys(defaults).map((key) => [
+    key, Object.prototype.hasOwnProperty.call(cache, key) ? cache[key] : defaults[key],
+  ]));
+  restored.probation = { ...defaults.probation, ...(isRecord(cache.probation) ? cache.probation : {}) };
+  restored.social = { ...defaults.social, ...(isRecord(cache.social) ? cache.social : {}) };
+  restored.fund = { ...defaults.fund, ...(isRecord(cache.fund) ? cache.fund : {}) };
+  restored.monthlyIncome = isRecord(cache.monthlyIncome) ? cache.monthlyIncome : {};
+  restored.rates = isRecord(cache.rates) ? cache.rates : {};
+  return restored;
+}
+
+const form = reactive(createInitialForm(cachedConfig));
 const selectedCity = computed(() => props.cities.find((city) => city.name === form.city.trim()));
 const policy = computed(() => selectedCity.value?.policy);
 const result = ref(null);
@@ -44,6 +63,8 @@ const bonusModeOptions = [
   { value: 'separate', label: '单独计税' },
   { value: 'combined', label: '并入综合所得' },
 ];
+const cachedCity = typeof cachedConfig?.city === 'string' ? cachedConfig.city.trim() : '';
+let shouldRestoreCachedRates = cachedConfig?.customRates === true && isRecord(cachedConfig.rates);
 
 watch(() => props.cities, (cities) => {
   if (!form.city && cities.length) form.city = (cities.find((city) => city.policy) || cities[0]).name;
@@ -58,18 +79,29 @@ watch(incomeMonths, (months) => {
   }
 }, { immediate: true });
 watch(policy, (value, previous) => {
+  // 首次载入缓存城市时保留自定义比例；切换城市仍使用新城市的政策默认值。
+  if (!value && shouldRestoreCachedRates) return;
+  const restoreRates = shouldRestoreCachedRates && form.city.trim() === cachedCity;
+  if (value) shouldRestoreCachedRates = false;
   // 同一城市刷新数据库时保留用户已填写的比例，切换城市才重新带入默认值。
   if (form.customRates && value?.id === previous?.id) {
     if (result.value) dirty.value = true;
     return;
   }
   form.rates = Object.fromEntries((value?.items || []).map((item) => [item.key, {
-    personal: new Decimal(item.personal?.rate || 0).times(100).toNumber(),
-    company: new Decimal(item.company?.rate || 0).times(100).toNumber(),
+    personal: restoreRates && form.rates[item.key]?.personal !== undefined
+      ? form.rates[item.key].personal
+      : new Decimal(item.personal?.rate || 0).times(100).toNumber(),
+    company: restoreRates && form.rates[item.key]?.company !== undefined
+      ? form.rates[item.key].company
+      : new Decimal(item.company?.rate || 0).times(100).toNumber(),
   }]));
   if (result.value) dirty.value = true;
 }, { immediate: true });
-watch(form, () => { if (result.value) dirty.value = true; }, { deep: true });
+watch(form, (value) => {
+  saveCalculatorConfig(value);
+  if (result.value) dirty.value = true;
+}, { deep: true, immediate: true });
 
 function probationRate(index) {
   const months = Number(form.probation.months);
@@ -118,7 +150,7 @@ function calculate(regenerate = false) {
   <div class="page-title"><div><span class="eyebrow">SALARY CALCULATOR</span><h1>工资算清楚，收入更有数。</h1><p>从税前到到手，拆解每个月的收入与缴费。</p></div><span class="title-mark" aria-hidden="true">¥</span></div>
   <div class="calculator-layout">
     <form class="card calculator-form" @submit.prevent="calculate(false)">
-      <div class="card-heading"><h2>计算条件</h2><span class="pill">仅本次使用</span></div>
+      <div class="card-heading"><h2>计算条件</h2><span class="pill">配置自动保存</span></div>
       <fieldset><legend><span class="step">01</span> 收入与任职</legend>
         <CityCombobox id="calculator-city" v-model="form.city" :cities="cities" label="社保公积金缴纳地" :disabled="loading" />
         <p v-if="!policy && !loading" class="helper">{{ form.city.trim() ? '城市不存在。' : '请搜索并选择已有城市。' }}<RouterLink class="inline-link" :to="{ name: 'sync' }">前往添加城市并同步 <UiIcon name="arrow-right" /></RouterLink></p>
@@ -163,7 +195,7 @@ function calculate(regenerate = false) {
       </fieldset>
       <div v-if="error" class="notice error" role="alert">{{ error }}</div>
       <div class="form-actions"><button class="button primary-button" type="submit" :disabled="!policy || loading">计算工资 <UiIcon name="arrow-right" class="button-end-icon" /></button><button class="button secondary-button" type="button" :disabled="!policy || loading" @click="calculate(true)">重新生成浮动</button></div>
-      <p class="helper centered">普通重算保留浮动值 · 刷新页面不保留结果</p>
+      <p class="helper centered">配置自动保存到当前浏览器 · 刷新页面不保留结果</p>
     </form>
     <div class="results-column">
       <div class="module-heading"><div><span class="eyebrow">CALCULATION RESULTS</span><h2>收入与缴费总览</h2></div><span class="pill">按月展示</span></div>
