@@ -1072,6 +1072,10 @@ input[type="month"] {
   color: #b0cabc;
 }
 
+.app-year-summary-cards {
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+}
+
 .table-scroll {
   overflow-x: auto;
 }
@@ -2192,6 +2196,41 @@ progress::-moz-progress-bar {
   flex-wrap: wrap;
 }
 
+.result-view-switch {
+  display: inline-flex;
+  padding: 3px;
+  border: 1px solid #dce5d9;
+  border-radius: 8px;
+  background: #f5f8f2;
+}
+
+.result-view-switch button {
+  min-height: 30px;
+  padding: 6px 10px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: #718074;
+  font-size: 10px;
+}
+
+.result-view-switch button.active {
+  background: #fff;
+  color: var(--green);
+  font-weight: 600;
+  box-shadow: 0 2px 7px rgba(31, 83, 61, .1);
+}
+
+.app-flow-table>tbody>tr.month-row:not(.year-total-row)>* {
+  padding-bottom: 17px;
+  border-bottom: 1px solid #edf0e9;
+}
+
+.app-flow-table>tbody>tr.month-row>td:last-child {
+  color: #607d6a;
+  font-weight: 600;
+}
+
 .copy-toolbar {
   padding: 12px 20px;
   display: flex;
@@ -2360,6 +2399,10 @@ progress::-moz-progress-bar {
 
   .summary-card.primary {
     grid-column: 1 / -1;
+  }
+
+  .app-year-summary-cards .summary-card.primary {
+    grid-column: auto;
   }
 
   .summary-card.primary strong {
@@ -2742,6 +2785,16 @@ progress::-moz-progress-bar {
     justify-content: space-between;
   }
 
+  .result-view-switch {
+    width: 100%;
+  }
+
+  .result-view-switch button {
+    flex: 1;
+    min-height: 38px;
+    font-size: 11px;
+  }
+
   .city-dropdown li {
     padding-top: 13px;
     padding-bottom: 13px;
@@ -2801,6 +2854,20 @@ progress::-moz-progress-bar {
     content: ' · 到手收入';
     font-size: 10px;
     font-weight: 400;
+  }
+
+  .app-flow-table>tfoot th::after {
+    content: ' · 税前工资';
+  }
+
+  .app-flow-table>tfoot td:last-child {
+    display: none;
+  }
+
+  .app-flow-table>tfoot td.app-flow-total-income {
+    display: block;
+    padding: 4px 0;
+    font-size: 14px;
   }
 
   .details-body {
