@@ -128,6 +128,15 @@ function setMonthSalary(month, index, event) {
     : new Decimal(event.target.valueAsNumber).div(rate).toDecimalPlaces(10, Decimal.ROUND_HALF_UP).toNumber();
 }
 
+function resetMonthlyIncome() {
+  form.monthlyIncome = Object.fromEntries(incomeMonths.value.map((month) => [month, {
+    salary: null,
+    floating: true,
+    social: true,
+    fund: true,
+  }]));
+}
+
 function calculate(regenerate = false) {
   error.value = '';
   try {
@@ -165,6 +174,7 @@ function calculate(regenerate = false) {
         <p v-if="form.probation.enabled" class="helper">入职当月算第 1 个月；先对当月固定月薪应用试用期比例，再计算浮动和首尾月出勤折算。年终奖不打折。</p>
         <details v-if="monthlySettings.length" class="monthly-income-settings">
           <summary>逐月固定税前收入、浮动与缴费 <span>{{ monthlySettings.length }} 个月</span></summary>
+          <div class="monthly-income-actions"><button class="button small-button secondary-button" type="button" @click="resetMonthlyIncome">重置逐月配置</button></div>
           <div class="monthly-income-head" aria-hidden="true"><span>月份</span><span>固定税前月薪</span><span>浮动 / 社保 / 公积金</span></div>
           <div v-for="({ month, settings }, index) in monthlySettings" :key="month" class="monthly-income-row">
             <span class="monthly-income-month">{{ month }} <small v-if="form.probation.enabled && index < Number(form.probation.months)">试用期</small></span>

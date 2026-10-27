@@ -793,6 +793,12 @@ input[type="month"] {
   font-weight: 400;
 }
 
+.monthly-income-actions {
+  display: flex;
+  justify-content: flex-end;
+  padding: 0 12px;
+}
+
 .monthly-income-head,
 .monthly-income-row {
   display: grid;
